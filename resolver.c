@@ -13,6 +13,7 @@ typedef unsigned short dns_rdata_len;
 typedef unsigned short dns_rr_count;
 typedef unsigned short dns_query_id;
 typedef unsigned short dns_flags;
+int MAX_SIZE = 512;
 
 typedef struct {
 	char *name;
@@ -125,22 +126,6 @@ int name_ascii_to_wire(char *name, unsigned char *wire) {
 	 */
 }
 
-char *name_ascii_from_wire(unsigned char *wire, int *indexp) {
-	/* 
-	 * Extract the wire-formatted DNS name at the offset specified by
-	 * *indexp in the array of bytes provided (wire) and return its string
-	 * representation (dot-separated labels) in a char array allocated for
-	 * that purpose.  Update the value pointed to by indexp to the next
-	 * value beyond the name.
-	 *
-	 * INPUT:  wire: a pointer to an array of bytes
-	 * INPUT:  indexp, a pointer to the index in the wire where the
-	 *              wire-formatted name begins
-	 * OUTPUT: a string containing the string representation of the name,
-	 *              allocated on the heap.
-	 */
-}
-
 dns_rr rr_from_wire(unsigned char *wire, int *indexp, int query_only) {
 	/* 
 	 * Extract the wire-formatted resource record at the offset specified by
@@ -192,6 +177,53 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
 	 *               message should be constructed
 	 * OUTPUT: the length of the DNS wire message
 	 */
+    
+    // Identification (query ID)
+    wire[0] = 0x04;  
+    wire[1] = 0x04;
+    // Query Flag - hardcoded to 1
+    wire[2] = 0x01;
+    wire[3] = 0x00;
+    // Questions in the wire, hardcoded to 1
+    wire[4] = 0x00;
+    wire[5] = 0x01;
+    // Answer resourc records, hardcoded to 0 for a query
+    wire[6] = 0x00;
+    wire[7] = 0x00;
+    // Authority/Additional Resource Records - Hard coded to 0 for this lab
+    wire[8] = 0x00;
+    wire[9] = 0x00;
+    wire[10] = 0x00;
+    wire[11] = 0x00;
+
+    // Parse and add the qname to the wire
+    int numCharsIndex = 12;
+    int index = 13;
+    int count = 0;
+    for(int i = 0; i < strlen(qname); i++) {
+        if(qname[i] != '.') {
+            unsigned char temp = qname[i];
+            // fprintf(stdout, "Char: %c\n", temp);
+            wire[index] = temp;
+            count++;
+        } else {
+            // fprintf(stdout, "Adding %d to position: %d\n", count, numCharsIndex);
+            wire[numCharsIndex] = (unsigned char)count;
+            numCharsIndex = numCharsIndex + count + 1;
+            count = 0;
+        }
+        index++;
+    }
+    wire[index] = 0x00;
+    index++;
+    // Hard code the type/class values
+    wire[index] = 0x00; index++;
+    wire[index] = 0x01; index++;
+    wire[index] = 0x00; index++;
+    wire[index] = 0x01; index++;
+
+    int sizeOfWire = sizeof wire / sizeof *wire;
+    return sizeOfWire;
 }
 
 dns_answer_entry *get_answer_address(char *qname, dns_rr_type qtype, unsigned char *wire) {
@@ -223,7 +255,25 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
 	 */
 }
 
+/* INPUT:
+*       qname - domain name
+*       server - server
+*       port - port
+*/
+// TODO: Implement this function. The only function that I cannot delete.
 dns_answer_entry *resolve(char *qname, char *server, char *port) {
+    // ---Step 3 Make your query wire--- //
+    // In order to send your query, you have to make a properly formatted byte wire
+    // A byte wire is just an unsigned char[] or unsigned char*
+    int sizeOfWire = strlen(qname) + 18; // 18 Because those are required variables for 
+                                         // any query message.
+    char wire[sizeOfWire];
+    unsigned short dnsWireMessageLength = create_dns_query(qname, 1, wire);
+    print_bytes(wire, sizeOfWire);
+
+    // ---Step 4 Send your query--- //
+    char response[MAX_SIZE];
+    int send_recv_message(wire, dnsWireMessageLength, )
 }
 
 int main(int argc, char *argv[]) {
@@ -238,8 +288,9 @@ int main(int argc, char *argv[]) {
 	} else {
 		port = "53";
 	}
-	ans = ans_list = resolve(argv[1], argv[2], port);
-	while (ans != NULL) {
+	ans = ans_list = resolve(argv[1], argv[2], port); // Resolve the domain name (where all of the action takes place)
+	while (ans != NULL) { // Iterates through all of the answers and prints them.
+                          // Answers are in a linked list.
 		printf("%s\n", ans->value);
 		ans = ans->next;
 	}
