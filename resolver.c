@@ -266,15 +266,14 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
 	ssize_t nread;
     int BUF_SIZE = 500;
 	char buf[BUF_SIZE];
-	int af;
 
 	/* Obtain address(es) matching host/port */
 
 	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = af;    /* Allow IPv4, IPv6, or both, depending on what was specified on the command line. */
+	hints.ai_family = AF_INET;    /* IPV4. */
 	hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
 	hints.ai_flags = 0;
-	hints.ai_protocol = 0;          /* Any protocol */
+	hints.ai_protocol = 0;          /* 0 means use default protocol for the address family. So this will say use IPV4 protocol. */
 
     // fprintf(stdout,"Here is port: %s\n", port);
 	s = getaddrinfo(server, port, &hints, &result);
