@@ -129,7 +129,7 @@ int name_ascii_to_wire(char *name, unsigned char *wire) {
 	 */
 }
 
-dns_rr rr_from_wire(unsigned char *wire, int *indexp, int query_only) {
+dns_rr rr_from_wire(unsigned char *wire, int indexp, int query_only) {
 	/* 
 	 * Extract the wire-formatted resource record at the offset specified by
 	 * *indexp in the array of bytes provided (wire) and return a 
@@ -146,6 +146,74 @@ dns_rr rr_from_wire(unsigned char *wire, int *indexp, int query_only) {
 	 *              rdata_len, and rdata are skipped.
 	 * OUTPUT: the resource record (struct)
 	 */
+
+    // typedef struct {
+	// char *name;
+	// dns_rr_type type;
+	// dns_rr_class class;
+	// dns_rr_ttl ttl;
+	// dns_rdata_len rdata_len;
+	// unsigned char *rdata;
+    // } dns_rr;
+
+    // name and rdata memcpy
+
+    fprintf(stdout, "Inside of rr_from_wire.\n");
+    fflush(stdout);
+    
+    dns_rr *answer;
+    
+    // Get name
+    int tempIndex = (wire[indexp] << 8 | wire[indexp + 1]);
+    fprintf(stdout, "tempindex: %d\n", tempIndex);
+    fflush(stdout);
+
+    int nameLength = (indexp - 4) - tempIndex; // 4 because of the four fixed type/class bytes after the URL and before the name
+    fprintf(stdout, "nameLength: %d\n", nameLength);
+    fflush(stdout);
+
+    char name[nameLength + 1]; // + 1 to leave space for a null terminator
+    int n = 0;
+    fprintf(stdout, "Here is tempIndex: %d\nHere is nameLength: %d\n", tempIndex, nameLength);
+    fflush(stdout);
+    for(int i = 0; i < nameLength + 1; i++) {
+        if(i == nameLength) {
+            // Set the null teminator
+            name[i] = '\0';
+        } else {
+            name[i] = wire[indexp];
+        }
+        indexp++;
+        n++;
+    }
+    fprintf(stdout, "Here goes nothing!\n\n\t  ¯\\_(ツ)_/¯ \n---LOOK HERE----");
+    fflush(stdout);
+    print_bytes(name, n);
+    memcpy(answer->name, name, n);
+
+    // Get type (IPV4 addres)
+    unsigned short type = (wire[indexp] << 8 | wire[indexp + 1]); // combine the two bytes into a number
+    answer->type = type;
+    indexp += 2;
+
+    // Get class (In, Internet)
+    unsigned short class = (wire[indexp] << 8 | wire[indexp + 1]); // combine the two bytes into a number
+    answer->class = class;
+    indexp += 2;
+
+    // Skip over TTL (Time to live) because it is useless in this lab.
+    answer->ttl = 0;
+    indexp += 4; // Skip over those 4 bytes
+
+    // Get Data length
+    unsigned short dataLength = (wire[indexp] << 8 | wire[indexp + 1]); // combine the two bytes into a number
+    answer->rdata_len = dataLength;
+    indexp += 2;
+
+    memcpy(answer->rdata, wire + indexp, 2); // Data-- Byte (NOT ASCII) encoding of the IPV4 address (can vary in length) // USE INET_NTOP
+    indexp += 2;
+
+    return *answer;
 }
 
 
@@ -182,7 +250,10 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
 	 */
     
     // Identification (query ID)
-    wire[0] = 0x04;  
+    int num = rand();
+    wire[0] = (num & 0xFF);
+    wire[1] = ((num >> 8) & 0xFF);
+    wire[0] = 0x04; 
     wire[1] = 0x04;
     // Query Flag - hardcoded to 1
     wire[2] = 0x01;
@@ -260,9 +331,6 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
 	 * OUTPUT: the size (bytes) of the response received
 	 */
 
-    // fprintf(stdout, "Here is the length of the request: %d\n", requestlen);
-    // fflush(stdout);
-
     int socketFileDescriptor;
     struct sockaddr_in servaddr;
 
@@ -329,16 +397,17 @@ dns_answer_entry *resolve(char *qname, char *server, char *port) {
                                          // any query message.
     char wire[sizeOfWire];
     unsigned short dnsWireMessageLength = create_dns_query(qname, 1, wire);
-    //print_bytes(wire, dnsWireMessageLength);
+    print_bytes(wire, dnsWireMessageLength);
 
     // ---Step 4 Send your query--- //
     char response[MAXLINE];
-    //unsigned short portAsNumber = (unsigned short) strtoul(port, NULL, 0);
     int numResponseBytes = send_recv_message(wire, dnsWireMessageLength, response, server, port);
-    // print_bytes(response, numResponseBytes);
     fprintf(stdout, "\n------------------Printing Bytes-----------------");
     fflush(stdout);
     print_bytes(response, numResponseBytes);
+
+    // ---Step 5 Make a single answer--- //
+    //dns_rr answer = rr_from_wire(response, sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
 
     return NULL;
 }
