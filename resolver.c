@@ -5,6 +5,8 @@
 #include<stdlib.h>
 #include<sys/types.h>
 #include<sys/socket.h>
+#include<netdb.h>
+#include<unistd.h>
 
 typedef unsigned int dns_rr_ttl;
 typedef unsigned short dns_rr_type;
@@ -187,7 +189,7 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
     // Questions in the wire, hardcoded to 1
     wire[4] = 0x00;
     wire[5] = 0x01;
-    // Answer resourc records, hardcoded to 0 for a query
+    // Answer resource records, hardcoded to 0 for a query
     wire[6] = 0x00;
     wire[7] = 0x00;
     // Authority/Additional Resource Records - Hard coded to 0 for this lab
@@ -222,7 +224,8 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
     wire[index] = 0x00; index++;
     wire[index] = 0x01; index++;
 
-    int sizeOfWire = sizeof wire / sizeof *wire;
+    unsigned short sizeOfWire = strlen(qname) + 18; // 18 Because those are required variables for 
+                                         // any query message.
     return sizeOfWire;
 }
 
@@ -240,7 +243,8 @@ dns_answer_entry *get_answer_address(char *qname, dns_rr_type qtype, unsigned ch
 	 */
 }
 
-int send_recv_message(unsigned char *request, int requestlen, unsigned char *response, char *server, unsigned short port) {
+int send_recv_message(unsigned char *request, int requestlen, unsigned char *response, char *server, unsigned char* port) {
+    //unsigned char* port
 	/* 
 	 * Send a message (request) over UDP to a server (server) and port
 	 * (port) and wait for a response, which is placed in another byte
@@ -253,6 +257,68 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
 	 *             response should be received
 	 * OUTPUT: the size (bytes) of the response received
 	 */
+
+    struct addrinfo hints;
+	struct addrinfo *result, *rp;
+	int hostindex;
+	int sfd, s, j;
+	size_t len;
+	ssize_t nread;
+    int BUF_SIZE = 500;
+	char buf[BUF_SIZE];
+	int af;
+
+	/* Obtain address(es) matching host/port */
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = af;    /* Allow IPv4, IPv6, or both, depending on what was specified on the command line. */
+	hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;          /* Any protocol */
+
+    // fprintf(stdout,"Here is port: %s\n", port);
+	s = getaddrinfo(server, port, &hints, &result);
+	if (s != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+		exit(EXIT_FAILURE);
+	}
+
+	/* getaddrinfo() returns a list of address structures.
+	   Try each address until we successfully connect(2).
+	   If socket(2) (or connect(2)) fails, we (close the socket
+	   and) try the next address. */
+
+	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		sfd = socket(rp->ai_family, rp->ai_socktype,
+				rp->ai_protocol);
+		if (sfd == -1)
+			continue;
+
+		if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1) {
+			break;                  /* Success */
+		    close(sfd);
+        }
+	}
+
+	if (rp == NULL) {               /* No address succeeded */
+		fprintf(stderr, "Could not connect\n");
+		exit(EXIT_FAILURE);
+	}
+
+	freeaddrinfo(result);           /* No longer needed */
+    int bytesSent = 0;
+    if((bytesSent = send(sfd, request, requestlen, 0)) < 1) {
+        perror("Error sending response");
+    }
+    fprintf(stdout, "Bytes sent: %d\n", bytesSent);
+    fflush(stdout);
+    sleep(1);
+    int bytesReceived = 0;
+    if((bytesReceived = recv(sfd, response, MAX_SIZE, 0)) < 0) {
+        perror("Error receiving response");
+    }
+    close(sfd);
+    return bytesReceived;
 }
 
 /* INPUT:
@@ -269,11 +335,16 @@ dns_answer_entry *resolve(char *qname, char *server, char *port) {
                                          // any query message.
     char wire[sizeOfWire];
     unsigned short dnsWireMessageLength = create_dns_query(qname, 1, wire);
-    print_bytes(wire, sizeOfWire);
+    //print_bytes(wire, dnsWireMessageLength);
 
     // ---Step 4 Send your query--- //
     char response[MAX_SIZE];
-    int send_recv_message(wire, dnsWireMessageLength, )
+    //unsigned short portAsNumber = (unsigned short) strtoul(port, NULL, 0);
+    int numResponseBytes = send_recv_message(wire, dnsWireMessageLength, response, server, port);
+    // print_bytes(response, numResponseBytes);
+    print_bytes(response, numResponseBytes);
+
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
