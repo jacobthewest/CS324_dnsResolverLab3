@@ -217,6 +217,7 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
         }
         index++;
     }
+    wire[numCharsIndex] = (unsigned char)count;
     wire[index] = 0x00;
     index++;
     // Hard code the type/class values
@@ -259,9 +260,8 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
 	 * OUTPUT: the size (bytes) of the response received
 	 */
 
-    fprintf(stdout, "Here is the length of the request: %d\n", requestlen);
-    fflush(stdout);
-
+    // fprintf(stdout, "Here is the length of the request: %d\n", requestlen);
+    // fflush(stdout);
 
     int socketFileDescriptor;
     struct sockaddr_in servaddr;
@@ -278,7 +278,7 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
     servaddr.sin_family = AF_INET;
     unsigned short portAsNum = (unsigned short) strtoul(port, NULL, 0);
     servaddr.sin_port = htons(portAsNum);
-    servaddr.sin_addr.s_addr = INADDR_ANY; 
+    inet_pton(AF_INET, server, &servaddr.sin_addr);
 
     int connectResult;
     if ((connectResult = connect(socketFileDescriptor, (const struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {
@@ -286,7 +286,7 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
         fprintf(stdout, "connect() -- FAILURE\n\tConnection return code: %d\n", connectResult);
         fflush(stdout);
     } else {
-        fprintf(stdout, "connect() -- SUCCESS\n\tConnection return code: %d\n", connectResult);
+        // fprintf(stdout, "connect() -- SUCCESS\n\tConnection return code: %d\n", connectResult);
         fflush(stdout);
     }
 
@@ -298,27 +298,16 @@ int send_recv_message(unsigned char *request, int requestlen, unsigned char *res
                 fprintf(stdout, "sendto() -- FAILURE\n\tError Code: %d\n", numBytesSent);
                 fflush(stdout);
     } else {
-        fprintf(stdout, "sendto() -- SUCCESS\n\tBytes sent: %d\n", numBytesSent);
-        fprintf(stdout, "\tLength of request: %d\n", requestlen);
+        // fprintf(stdout, "sendto() -- SUCCESS\n\tBytes sent: %d\n", numBytesSent);
+        // fprintf(stdout, "\tLength of request: %d\n", requestlen);
         fflush(stdout);
     }
 
-    if((bindResult = bind(socketFileDescriptor, (struct sockaddr *) &servaddr, sizeof(servaddr))) < 0) {
-        fprintf(stdout, "bind() -- FAILURE\n\tError Code: %d\n", bindResult);
-        perror("\tCould not bind");
+    if((numBytesReceived = recv(socketFileDescriptor, response, MAXLINE, 0)) < 0) {
+        fprintf(stdout, "recv() -- FAILURE\n\tError Code: %d\n", numBytesReceived);
         fflush(stdout);
     } else {
-        fprintf(stdout, "bind() -- SUCCESS\n\tBind result: %d\n", bindResult);
-        fflush(stdout);
-    }
-
-    if((numBytesReceived = recvfrom(socketFileDescriptor, (char *)response, MAXLINE,  
-                0, (struct sockaddr *) &servaddr, 
-                &len) < 0)) {
-                fprintf(stdout, "recv() -- FAILURE\n\tError Code: %d\n", numBytesReceived);
-                fflush(stdout);
-    } else {
-        fprintf(stdout, "recv() -- SUCCESS\n\tBytes received: %d\n", numBytesReceived);
+        // fprintf(stdout, "recv() -- SUCCESS\n\tBytes received: %d\n", numBytesReceived);
         fflush(stdout);
     }
   
@@ -376,66 +365,3 @@ int main(int argc, char *argv[]) {
 		free_answer_entries(ans_list);
 	}
 }
-
-
-// OLD SEND_RECV_MESSAGE code.
-// struct addrinfo hints;
-// 	struct addrinfo *result, *rp;
-// 	int hostindex;
-// 	int sfd, s, j;
-// 	size_t len;
-// 	ssize_t nread;
-//     int BUF_SIZE = 500;
-// 	char buf[BUF_SIZE];
-
-// 	/* Obtain address(es) matching host/port */
-
-// 	memset(&hints, 0, sizeof(struct addrinfo));
-// 	hints.ai_family = AF_INET;    /* IPV4. */
-// 	hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
-// 	hints.ai_flags = 0;
-// 	hints.ai_protocol = 0;          /* 0 means use default protocol for the address family. So this will say use IPV4 protocol. */
-
-//     // fprintf(stdout,"Here is port: %s\n", port);
-// 	s = getaddrinfo(server, port, &hints, &result);
-// 	if (s != 0) {
-// 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-// 		exit(EXIT_FAILURE);
-// 	}
-
-// 	/* getaddrinfo() returns a list of address structures.
-// 	   Try each address until we successfully connect(2).
-// 	   If socket(2) (or connect(2)) fails, we (close the socket
-// 	   and) try the next address. */
-
-// 	for (rp = result; rp != NULL; rp = rp->ai_next) {
-// 		sfd = socket(rp->ai_family, rp->ai_socktype,
-// 				rp->ai_protocol);
-// 		if (sfd == -1)
-// 			continue;
-
-// 		if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1) {
-// 			break;                  /* Success */
-// 		    close(sfd);
-//         }
-// 	}
-
-// 	if (rp == NULL) {               /* No address succeeded */
-// 		fprintf(stderr, "Could not connect\n");
-// 		exit(EXIT_FAILURE);
-// 	}
-
-// 	freeaddrinfo(result);           /* No longer needed */
-//     int bytesSent = 0;
-//     if((bytesSent = send(sfd, request, requestlen, 0)) < 1) {
-//         perror("Error sending response");
-//     }
-//     fprintf(stdout, "Bytes sent: %d\n", bytesSent);
-//     fflush(stdout);
-//     sleep(1);
-//     int bytesReceived = 0;
-//     if((bytesReceived = recv(sfd, response, MAX_SIZE, 0)) < 0) {
-//         perror("Error receiving response");
-//     }
-//     close(sfd);
-//     return bytesReceived;
