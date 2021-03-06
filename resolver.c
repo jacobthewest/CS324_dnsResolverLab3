@@ -154,11 +154,11 @@ char * name_ascii_from_wire(char *wire, int *indexp) {
     
     while(1) {
         name[counter] = wire[startPosInResp];
-        fprintf(stdout, "\tname[%d] = %c\n", counter, wire[startPosInResp]);
-        fflush(stdout);
+        // fprintf(stdout, "\tname[%d] = %c\n", counter, wire[startPosInResp]);
+        // fflush(stdout);
         if (wire[startPosInResp] == '\0') {
-            fprintf(stdout, "\tNull char added\n");
-            fflush(stdout);
+            // fprintf(stdout, "\tNull char added\n");
+            // fflush(stdout);
             break;
         }
         counter++;
@@ -169,6 +169,37 @@ char * name_ascii_from_wire(char *wire, int *indexp) {
 
     *indexp += 2; // Set indexp ready to begin reading the class/type values.
     return name;
+}
+
+
+unsigned char* get_rdata_from_wire(unsigned char* wire, int* indexp, unsigned short dataLength) {
+    /*
+    * INPUT: wire = the query response. indexp = pointer to location in wire. dataLength = # bytes to read 
+    * OUTPUT: unsigned char* rdata. rdata is the the info we need from the wire.Needs to be formatted like a
+    * normal ip address would be with the periods and everything. Example: 128.187.26.284
+    */
+   unsigned char* rdata = malloc(dataLength)+3; // +3 because we need to have the ip address periods in there
+
+   int copy = *indexp; // I have to use copy because indexp gets screwed up if I don't
+   for(int i = 0; i < dataLength + 3; i++) {
+       // fprintf(stdout, "%d.", wire[copy]);
+       // fprintf(stdout, "wire[*indexp] = %0x\n", wire[*indexp]);
+       // fflush(stdout);
+       int thing = (int)wire[copy];
+       rdata[i] = (unsigned char)thing;
+    //    unsigned char c = wire[copy];
+    //    rdata[i] = c;
+       i++;
+       rdata[i] = '.';
+       copy++;
+   }
+   *indexp = copy;
+//    fprintf(stdout, "\n");
+//    fprintf(stdout, "*indexp = %d\n", *indexp);
+//    fprintf(stdout, "copy = %d\n", copy);
+   fprintf(stdout, "rdata: %s\n", rdata);
+   fflush(stdout);
+   return rdata;
 }
 
 dns_rr rr_from_wire(unsigned char *wire, int *indexp, int query_only) {
@@ -189,56 +220,74 @@ dns_rr rr_from_wire(unsigned char *wire, int *indexp, int query_only) {
 	 * OUTPUT: the resource record (struct)
 	 */
     
-    dns_rr *answer;
+    dns_rr *resourceRecord = malloc(sizeof(dns_rr));
 
     char *name = name_ascii_from_wire(wire, indexp);
 
-    fprintf(stdout, "here is name: %s\n", name);
+    // fprintf(stdout, "\nhere is name: %s\n", name);
+    // fprintf(stdout, "Value of *indexp = %d\n\n", *indexp);
+    // fflush(stdout);
 
-    memcpy(answer->name, name, strlen(name));
-    free(name);
+    resourceRecord->name = name;
 
-    fprintf(stdout, "answer->name just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->name just happened\n");
+    // fprintf(stdout, "Value of *indexp = %d\n\n", *indexp);
+    // fflush(stdout);
 
     // Get type (IPV4 addres)
-    unsigned short type = (wire[*indexp] << 8 | wire[*indexp + 1]); // combine the two bytes into a number
-    answer->type = type;
-    indexp += 2;
+    int copy = *indexp; // Have to use copy because bitshifting is screwing up *indexp somehow
+    unsigned short type = ((wire[copy]) << 8 | wire[copy + 1]); // combine the two bytes into a number
+    resourceRecord->type = type;
+    copy += 2;
+    *indexp = copy;
 
-    fprintf(stdout, "answer->type just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->type just happened\n");
+    // fprintf(stdout, "Value of *indexp = %d\n", *indexp);
+    // fprintf(stdout, "Value of copy = %d\n", copy);
+    // fprintf(stdout, "Value of type = %d\n\n", type);
+    // fflush(stdout);
 
     // Get class (In, Internet)
     unsigned short class = (wire[*indexp] << 8 | wire[*indexp + 1]); // combine the two bytes into a number
-    answer->class = class;
+    resourceRecord->class = class;
     *indexp += 2;
 
-    fprintf(stdout, "answer->class just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->class just happened\n");
+    // fprintf(stdout, "Value of *indexp = %d\n\n", *indexp);
+    // fflush(stdout);
 
     // Skip over TTL (Time to live) because it is useless in this lab.
-    answer->ttl = 0;
+    resourceRecord->ttl = 0;
     *indexp += 4; // Skip over those 4 bytes
 
-    fprintf(stdout, "answer->ttl just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->ttl just happened\n");
+    // fprintf(stdout, "Value of *indexp = %d\n\n", *indexp);
+    // fflush(stdout);
 
     // Get Data length
-    unsigned short dataLength = (wire[*indexp] << 8 | wire[*indexp + 1]); // combine the two bytes into a number
-    answer->rdata_len = dataLength;
-    indexp += 2;
+    copy = *indexp; // Have to use copy because bitshifting is screwing up *indexp somehow
+    unsigned short dataLength = (wire[copy] << 8 | wire[copy + 1]); // combine the two bytes into a number
+    resourceRecord->rdata_len = dataLength;
+    copy += 2;
+    *indexp = copy;
 
-    fprintf(stdout, "answer->rdata_len just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->rdata_len just happened\n");
+    // fprintf(stdout, "Value of *indexp = %d\n", *indexp);
+    // fprintf(stdout, "Value of copy = %d\n", copy);
+    // fprintf(stdout, "wire[*indexp] = %0x\n", wire[*indexp]);
+    // fprintf(stdout, "wire[*indexp + 1] = %0x\n\n", wire[*indexp+1]);
+    // fflush(stdout);
 
-    memcpy(answer->rdata, wire + *indexp, 2); // Data-- Byte (NOT ASCII) encoding of the IPV4 address (can vary in length) // USE INET_NTOP
-    *indexp += 2;
+    // Data-- Byte (NOT ASCII) encoding of the IPV4 address (can vary in length) // USE INET_NTOP
+    unsigned char* rdata = get_rdata_from_wire(wire, indexp, dataLength); 
+    resourceRecord->rdata = rdata;
+    // fprintf(stdout, "Here is *indexp: %d\n", *indexp);
+    // fflush(stdout);
 
-    fprintf(stdout, "answer->rdata just happened\n");
-    fflush(stdout);
+    // fprintf(stdout, "answer->rdata just happened\n");
+    // fflush(stdout);
 
-    return *answer;
+    return *resourceRecord;
 }
 
 int rr_to_wire(dns_rr rr, unsigned char *wire, int query_only) {
@@ -288,18 +337,21 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
     // Answer resource records, hardcoded to 0 for a query
     wire[6] = 0x00;
     wire[7] = 0x00;
+
+    
     // Authority/Additional Resource Records - Hard coded to 0 for this lab
-    wire[8] = 0x00;
-    wire[9] = 0x00;
-    wire[10] = 0x00;
-    wire[11] = 0x00;
+    int index = 8;
+    wire[index] = 0x00; index++;
+    wire[index] = 0x00; index++;
+    wire[index] = 0x00; index++;
+    wire[index] = 0x00; index++;
+    
 
     // Parse and add the qname to the wire
     int numCharsIndex = 12;
-    int index = 13;
+    index++;
     int count = 0;
-    // fprintf(stdout, "Here is strlen: %ld", strlen(qname));
-    // fflush(stdout);
+    
     for(int i = 0; i < strlen(qname); i++) {
         if(qname[i] != '.') {
             unsigned char temp = qname[i];
@@ -317,6 +369,8 @@ unsigned short create_dns_query(char *qname, dns_rr_type qtype, unsigned char *w
     wire[numCharsIndex] = (unsigned char)count;
     wire[index] = 0x00;
     index++;
+    // fprintf(stdout, "wire: %s\n", wire);
+    // fflush(stdout);
     // Hard code the type/class values
     wire[index] = 0x00; index++;
     wire[index] = 0x01; index++;
@@ -421,21 +475,31 @@ dns_answer_entry *resolve(char *qname, char *server, char *port) {
     // A byte wire is just an unsigned char[] or unsigned char*
     int sizeOfWire = strlen(qname) + 18; // 18 Because those are required variables for 
                                          // any query message.
-    char wire[sizeOfWire];
+    unsigned char wire[sizeOfWire];
     unsigned short dnsWireMessageLength = create_dns_query(qname, 1, wire);
-    //print_bytes(wire, dnsWireMessageLength);
+    // print_bytes(wire, dnsWireMessageLength);
 
     // ---Step 4 Send your query--- //
-    char response[MAXLINE];
+    unsigned char response[MAXLINE];
     int numResponseBytes = send_recv_message(wire, dnsWireMessageLength, response, server, port);
-    fprintf(stdout, "\n------------------Printing Bytes-----------------");
-    fflush(stdout);
-    print_bytes(response, numResponseBytes);
+    // fprintf(stdout, "\n------------------Printing Bytes-----------------");
+    // fflush(stdout);
+    // print_bytes(response, numResponseBytes);
 
+    
     // ---Step 5 Make a single answer--- //
-    dns_rr answer = rr_from_wire(response, &sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
+    dns_rr resourceRecord = rr_from_wire(response, &sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
 
-    return NULL;
+    // Make a new answer struct...
+    dns_answer_entry *answer_entry = malloc(sizeof(dns_answer_entry));
+    
+    //... with the data from the first resource record
+    answer_entry->value = resourceRecord.rdata;
+
+    // Set pointer of your answer to NULL
+    answer_entry->next = NULL;
+
+    return answer_entry;
 }
 
 int main(int argc, char *argv[]) {
