@@ -487,19 +487,20 @@ dns_answer_entry *resolve(char *qname, char *server, char *port) {
     // print_bytes(response, numResponseBytes);
 
     
-    // ---Step 5 Make a single answer--- //
-    dns_rr resourceRecord = rr_from_wire(response, &sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
+    // // ---Step 5 Make a single answer--- //
+    // dns_rr resourceRecord = rr_from_wire(response, &sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
 
-    // Make a new answer struct...
-    dns_answer_entry *answer_entry = malloc(sizeof(dns_answer_entry));
+    // // Make a new answer struct...
+    // dns_answer_entry *answer_entry = malloc(sizeof(dns_answer_entry));
     
-    //... with the data from the first resource record
-    answer_entry->value = resourceRecord.rdata;
+    // //... with the data from the first resource record
+    // answer_entry->value = resourceRecord.rdata;
 
-    // Set pointer of your answer to NULL
-    answer_entry->next = NULL;
+    // // Set pointer of your answer to NULL
+    // answer_entry->next = NULL;
 
-    return answer_entry;
+    //return answer_entry;
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
