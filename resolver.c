@@ -486,7 +486,13 @@ dns_answer_entry *resolve(char *qname, char *server, char *port) {
     // fflush(stdout);
     // print_bytes(response, numResponseBytes);
 
-    
+    int numAnswers = response[7];
+    if(numAnswers != 0) {
+        char* dataIndex = response + (numResponseBytes - 4);
+        fprintf(stdout, "%d.%d.%d.%d\n", (unsigned char)dataIndex[0], (unsigned char)dataIndex[1], (unsigned char)dataIndex[2], (unsigned char)dataIndex[3]);
+        fflush(stdout);
+    }
+
     // // ---Step 5 Make a single answer--- //
     // dns_rr resourceRecord = rr_from_wire(response, &sizeOfWire, 1); // 1 means it is only a query. 0 means full resource record. 
 
